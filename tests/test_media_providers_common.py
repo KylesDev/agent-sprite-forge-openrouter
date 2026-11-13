@@ -45,6 +45,7 @@ KEYS = {
     "XAI_API_KEY": "xai-adapter-canary-" + "3123456789abcdef" * 2,
     "ARK_API_KEY": "ark-adapter-canary-" + "4123456789abcdef" * 2,
     "FAL_KEY": "fal-key-id-canary-5123:" + "fal-secret-canary-" + "6123456789abcdef" * 2,
+    "OPENROUTER_API_KEY": "sk-or-v1-canary-" + "7123456789abcdef" * 2,
 }
 MP4_HEADER = b"\x00\x00\x00\x18ftypmp42"
 
@@ -347,14 +348,14 @@ def test_capabilities_are_complete_dated_and_consistent():
         assert record["keyEnv"] == list(media_config.PROVIDER_KEYS[name]) == list(
             route_media.forge_doctor.API_PROVIDERS[name])
         assert record["label"] == route_media.forge_doctor.API_LABEL[name]
-        assert record["apiBase"].startswith("https://") and record["verifiedAt"] == "2026-10-06"
+        assert record["apiBase"].startswith("https://") and record["verifiedAt"] in ("2026-10-06", "2026-11-13")
         assert record["docs"] and all(url.startswith("https://") for url in record["docs"])
         for kind, tiers in record["tiers"].items():
             for tier in media_providers.TIERS:
                 model = tiers[tier]["model"]
                 assert record["models"][model]["kind"] == kind, (name, kind, tier)
         for model, entry in record["models"].items():
-            assert entry["verifiedAt"] == "2026-10-06" and entry["docs"][0].startswith("https://"), model
+            assert entry["verifiedAt"] in ("2026-10-06", "2026-11-13") and entry["docs"][0].startswith("https://"), model
             assert entry["async"] in ("sync", "poll") and entry["cost_unit"] in ("image", "second"), model
             if entry["kind"] == "video":
                 assert {"i2v", "last_frame", "durations", "resolutions", "fps", "aspect_1_1", "audio_off"} <= set(entry["video"])
@@ -376,7 +377,7 @@ def test_every_price_row_names_a_capability_record():
     assert prices["version"] == "2026-10-06"
     for row in prices["rows"]:
         assert row["model"] in media_providers.adapter(row["provider"]).models(), row
-        assert row["verifiedAt"] == "2026-10-06" and row["source"].startswith("https://")
+        assert row["verifiedAt"] in ("2026-10-06", "2026-11-13") and row["source"].startswith("https://")
 
 
 def test_retirement_follows_the_calendar(monkeypatch):
@@ -406,13 +407,15 @@ def test_each_provider_has_its_own_keys_and_fal_key_halves_are_redacted(project,
     monkeypatch.setenv("FAL_KEY", KEYS["FAL_KEY"])
     secrets = media_config.known_secrets()
     assert {KEYS["FAL_KEY"], *KEYS["FAL_KEY"].split(":")} <= set(secrets)
-    assert media_config.configured() == {"openai": False, "gemini": False, "xai": False, "byteplus": False, "fal": True}
+    assert media_config.configured() == {"openai": False, "gemini": False, "xai": False, "byteplus": False, "fal": True,
+                                         "openrouter": False}
     assert media_config.api_key("byteplus") is None  # never another provider's key
     assert route_media.redact(f"echo {KEYS['FAL_KEY'].split(':')[1]}") == "echo [redacted]"
 
 
 def every_key(monkeypatch, *names):
-    for name in names or ("OPENAI_API_KEY", "GEMINI_API_KEY", "XAI_API_KEY", "ARK_API_KEY", "FAL_KEY"):
+    for name in names or ("OPENAI_API_KEY", "GEMINI_API_KEY", "XAI_API_KEY", "ARK_API_KEY", "FAL_KEY",
+                          "OPENROUTER_API_KEY"):
         monkeypatch.setenv(name, KEYS[name])
 
 
@@ -423,13 +426,14 @@ def test_the_default_route_order_and_the_users_preference(project, monkeypatch, 
                                "local:grok-cli"]
     assert result["available"] == ["api:openai", "api:gemini", "api:xai", "api:byteplus", "api:fal"]
     code, result, _ = run_route(capsys, "resolve", "--kind", "video")
-    assert result["order"] == ["api:xai", "api:byteplus", "api:fal", "local:grok-acp"] and result["pinsLastFrame"]
+    assert result["order"] == ["api:xai", "api:byteplus", "api:fal", "api:openrouter", "local:grok-acp"]
+    assert result["pinsLastFrame"]
     configure(providers={"order": {"image": ["gemini", "nonsense"], "video": ["fal", "byteplus"]}})
     code, result, _ = run_route(capsys, "resolve", "--kind", "image", "--references", "1")
     assert result["order"][:3] == ["api:gemini", "api:openai", "api:xai"] and result["route"] == "api:gemini"
     assert "providers.order: unknown name 'nonsense' ignored" in result["skipped"]
     code, result, _ = run_route(capsys, "resolve", "--kind", "video")
-    assert result["order"] == ["api:fal", "api:byteplus", "api:xai", "local:grok-acp"]
+    assert result["order"] == ["api:fal", "api:byteplus", "api:xai", "api:openrouter", "local:grok-acp"]
     assert (result["route"], result["model"]) == ("api:fal", "fal-ai/kling-video/v3/pro/image-to-video")
     configure(providers={"order": ["grok-acp", "codex-cli"]})  # one list for both kinds; local routes may lead
     assert run_route(capsys, "resolve", "--kind", "image")[1]["order"][0] == "local:codex-cli"
@@ -509,6 +513,7 @@ SECRET_CASES = {  # provider -> (key variable, kind, the paid endpoint, extra ro
     "byteplus": ("ARK_API_KEY", "video", "https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks", []),
     "fal": ("FAL_KEY", "video", "https://queue.fal.run/fal-ai/kling-video/v3/pro/image-to-video",
             ["--provider-option", "fal_upload=data"]),
+    "openrouter": ("OPENROUTER_API_KEY", "video", "https://openrouter.ai/api/v1/videos", ["--resolution", "480p"]),
 }
 
 
@@ -557,7 +562,8 @@ def test_the_doctor_lists_every_provider_and_the_resolved_order(project, tmp_pat
     monkeypatch.setenv("GOOGLE_API_KEY", KEYS["GOOGLE_API_KEY"])
     configure(providers={"order": ["byteplus"]})
     report = doctor.diagnose(host_tools="none", project_dir=project, run_versions=False, console_encoding="utf-8")
-    assert report["apiKeys"] == {"openai": False, "gemini": True, "xai": False, "byteplus": True, "fal": False}
+    assert report["apiKeys"] == {"openai": False, "gemini": True, "xai": False, "byteplus": True, "fal": False,
+                                 "openrouter": False}
     assert report["providers"]["gemini"]["variable"] == "GOOGLE_API_KEY"
     assert report["providers"]["fal"] == {"label": "fal.ai API", "configured": False, "keyEnv": ["FAL_KEY"],
                                           "source": None, "variable": None, "kinds": ["image", "video"]}
@@ -566,7 +572,7 @@ def test_the_doctor_lists_every_provider_and_the_resolved_order(project, tmp_pat
     assert report["providerPreference"] == {"image": ["byteplus"], "video": ["byteplus"]}
     assert "GOOGLE_API_KEY is configured" in next(c for c in report["checks"] if c["id"] == "media.api.gemini")["detail"]
     text = doctor.render_text(report)
-    assert "openai=no  gemini=yes  xai=no  byteplus=yes  fal=no" in text
+    assert "openai=no  gemini=yes  xai=no  byteplus=yes  fal=no  openrouter=no" in text
     assert "preference  image: byteplus (providers.order in the user config file)" in text
     assert_valid_contract(report, "media", "doctor_v1", skill="generate2dmedia")
     assert_no_secret(json.dumps(report), text)

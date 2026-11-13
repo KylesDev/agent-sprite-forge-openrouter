@@ -383,6 +383,8 @@ def test_local_fallthrough_and_no_route_for_video(env, capsys, monkeypatch, tmp_
                                     "skipped": ["api:xai: no XAI_API_KEY in the environment or the user config file",
                                                 "api:byteplus: no ARK_API_KEY in the environment or the user config file",
                                                 "api:fal: no FAL_KEY in the environment or the user config file",
+                                                "api:openrouter: no OPENROUTER_API_KEY in the environment or the user "
+                                                "config file",
                                                 "local:grok-acp: Grok Build CLI is not installed (not found on "
                                                 "PATH)"]}
 

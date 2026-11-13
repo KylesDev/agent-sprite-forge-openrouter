@@ -13,7 +13,7 @@ user config file, see media_config.py):
        images  OpenAI (gpt-image), Google Gemini, xAI (grok-imagine-image), BytePlus ModelArk
                (Seedream), fal.ai (reference edits)
        video   xAI (grok-imagine-video), BytePlus ModelArk (Seedance), fal.ai (Kling, Veo, Luma,
-               MiniMax, Wan, Vidu, LTX)
+               MiniMax, Wan, Vidu, LTX), OpenRouter (Seedance, Grok Imagine, Kling, Wan, Veo)
   2. local: the user's own signed-in CLI through cli_media.py (subscription quota, never an API
      key). Images: Codex (codex exec image_gen, references attached), then Grok one-shot
      (image_gen, or image_edit of one reference). Video: Grok in ACP mode (image_to_video; it
@@ -22,7 +22,7 @@ user config file, see media_config.py):
   3. none: prints {"status":"no-route","fallback":"codeart2d"} and exits 3. Use codeart2d only
      then, or when the user asks for code-drawn art.
 
---route api or local keeps one group; openai, gemini, xai, byteplus, fal, codex-cli, grok-cli or
+--route api or local keeps one group; openai, gemini, xai, byteplus, fal, openrouter, codex-cli, grok-cli or
 grok-acp names one route; fal:<endpoint-id> names one fal.ai model. --model picks a model (auto then
 keeps the providers that list it), --tier draft|standard|hero picks each provider's model tier,
 --provider-option KEY=VALUE passes a request field (PROVIDER:KEY=VALUE for one provider only).

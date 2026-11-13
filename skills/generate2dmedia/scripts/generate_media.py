@@ -436,7 +436,7 @@ def prepare(args):
     if not prompt or len(prompt) > 30000:
         raise MediaError("Prompt must contain 1..30000 characters")
     adapter = media_providers.adapter(args.provider)
-    pattern = media_providers.FAL_ID if args.provider == "fal" else media_providers.MODEL_ID
+    pattern = media_providers.FAL_ID if args.provider in ("fal", "openrouter") else media_providers.MODEL_ID
     if not pattern.fullmatch(args.model) or ".." in args.model:
         raise MediaError("Specify a concrete provider model identifier")
     try:

@@ -377,6 +377,72 @@
           "url_ttl_s": 604800, "async": "poll", "cost_unit": "image"
         }
       }
+    },
+    "openrouter": {
+      "label": "OpenRouter API",
+      "keyEnv": ["OPENROUTER_API_KEY"],
+      "apiBase": "https://openrouter.ai/api/v1",
+      "auth": "Authorization: Bearer <key>",
+      "kinds": ["video"],
+      "verifiedAt": "2026-11-13",
+      "docs": ["https://openrouter.ai/docs/guides/overview/multimodal/video-generation", "https://openrouter.ai/api/v1/videos/models"],
+      "note": "One normalized video API for many vendors: POST /videos with frame_images (first_frame, last_frame), poll GET /videos/{id}, download GET /videos/{id}/content with the key. Records follow the Video Models API (https://openrouter.ai/api/v1/videos/models) on verifiedAt; input frames are sent as data URIs. Images are not routed through OpenRouter in ASF.",
+      "tiers": {
+        "video": {
+          "draft": {"model": "x-ai/grok-imagine-video-1.5-lite"},
+          "standard": {"model": "bytedance/seedance-2.0-mini"},
+          "hero": {"model": "kwaivgi/kling-v3.0-std"}
+        }
+      },
+      "unknownModels": "none",
+      "models": {
+        "bytedance/seedance-2.0-mini": {
+          "kind": "video", "verifiedAt": "2026-11-13", "docs": ["https://openrouter.ai/api/v1/videos/models"],
+          "video": {"i2v": true, "last_frame": true, "durations": {"min": 4, "max": 15, "step": 1},
+                    "resolutions": ["480p", "720p"], "fps": 24, "aspect_1_1": "yes", "audio_off": true},
+          "openrouter": {"aspects": ["1:1", "3:4", "9:16", "4:3", "16:9", "21:9"], "audio_off": true,
+                         "sizes": {"480p": {"1:1": [640, 640], "3:4": [560, 752], "9:16": [480, 854], "4:3": [752, 560], "16:9": [854, 480], "21:9": [992, 432]},
+                                   "720p": {"1:1": [960, 960], "3:4": [834, 1112], "9:16": [720, 1280], "4:3": [1112, 834], "16:9": [1280, 720], "21:9": [1470, 630]}},
+                         "sizes_note": "the sizes Seedance really renders (a live 480p 1:1 call on 2026-11-13 returned 640x640, 97 frames, billed 38800 tokens), not the smaller list of the Video Models API; only resolution and aspect_ratio are sent",
+                         "price": {"unit": "video_token", "fps": 24}},
+          "note": "the cheapest model with both frames pinned and a square canvas: a 4 s 480p square clip (640x640) costs about $0.136",
+          "async": "poll", "cost_unit": "second"
+        },
+        "x-ai/grok-imagine-video-1.5-lite": {
+          "kind": "video", "verifiedAt": "2026-11-13", "docs": ["https://openrouter.ai/api/v1/videos/models"],
+          "video": {"i2v": true, "last_frame": false, "durations": {"min": 1, "max": 15, "step": 1},
+                    "resolutions": ["480p", "720p", "1080p"], "fps": 24, "aspect_1_1": "yes", "audio_off": "unverified"},
+          "keyframes_max": 0,
+          "openrouter": {"aspects": ["16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3"], "audio_off": false,
+                         "price": {"unit": "output_second", "input_image": true}},
+          "note": "the draft model: first frame only (no last frame, so loops are not pinned); $0.02 per second at 480p plus $0.01 per input image",
+          "async": "poll", "cost_unit": "second"
+        },
+        "kwaivgi/kling-v3.0-std": {
+          "kind": "video", "verifiedAt": "2026-11-13", "docs": ["https://openrouter.ai/api/v1/videos/models"],
+          "video": {"i2v": true, "last_frame": true, "durations": {"min": 3, "max": 15, "step": 1},
+                    "resolutions": ["720p"], "fps": 24, "aspect_1_1": "yes", "audio_off": true},
+          "openrouter": {"aspects": ["16:9", "9:16", "1:1"], "audio_off": true, "price": {"unit": "output_second"}},
+          "note": "the hero model: Kling v3 motion quality with both frames pinned, 720p only, $0.084 per second without audio",
+          "async": "poll", "cost_unit": "second"
+        },
+        "alibaba/wan-3.0": {
+          "kind": "video", "verifiedAt": "2026-11-13", "docs": ["https://openrouter.ai/api/v1/videos/models"],
+          "video": {"i2v": true, "last_frame": true, "durations": {"min": 2, "max": 30, "step": 1},
+                    "resolutions": ["480p", "720p", "1080p"], "fps": 24, "aspect_1_1": "yes", "audio_off": true},
+          "openrouter": {"aspects": ["16:9", "4:3", "1:1", "3:4", "9:16"], "audio_off": true, "price": {"unit": "output_second"}},
+          "note": "both frames pinned and clips from 2 s: $0.05 per second at 480p",
+          "async": "poll", "cost_unit": "second"
+        },
+        "google/veo-3.1-lite": {
+          "kind": "video", "verifiedAt": "2026-11-13", "docs": ["https://openrouter.ai/api/v1/videos/models"],
+          "video": {"i2v": true, "last_frame": true, "durations": {"values": [4, 6, 8]},
+                    "resolutions": ["720p", "1080p"], "fps": 24, "aspect_1_1": "no", "audio_off": true},
+          "openrouter": {"pad": "16:9", "audio_off": true, "price": {"unit": "output_second"}},
+          "note": "no 1:1: square stills are padded onto 16:9 in their key colour (the crop is recorded); $0.03 per second at 720p without audio",
+          "async": "poll", "cost_unit": "second"
+        }
+      }
     }
   }
 }

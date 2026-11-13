@@ -21,7 +21,7 @@ ROUTES follows the owner's order (2026-10-06), the order route_media.py uses:
   1. API, when a key is configured (in the environment or the user config file):
      images OpenAI (OPENAI_API_KEY), Google Gemini (GOOGLE_API_KEY or
      GEMINI_API_KEY), xAI (XAI_API_KEY), BytePlus ModelArk (ARK_API_KEY), fal.ai
-     (FAL_KEY, reference edits); video xAI, BytePlus, fal.ai. A configured key is
+     (FAL_KEY, reference edits); video xAI, BytePlus, fal.ai, OpenRouter (OPENROUTER_API_KEY). A configured key is
      the owner's consent; providers.order in the user config file goes first.
   2. local: the calling agent's own media tool, then the user's signed-in
      CLIs: Codex (local CLI) image_gen, then Grok (local CLI) one-shot image or
@@ -98,12 +98,13 @@ HOST_TOOL_ALIASES = {
 # Every API provider and its key variables, in the owner's route order (a copy of media_config.PROVIDER_KEYS,
 # kept here because the doctor imports no sibling at start-up; a test keeps the two equal).
 API_PROVIDERS = {"openai": ("OPENAI_API_KEY",), "gemini": ("GOOGLE_API_KEY", "GEMINI_API_KEY"),
-                 "xai": ("XAI_API_KEY",), "byteplus": ("ARK_API_KEY",), "fal": ("FAL_KEY",)}
+                 "xai": ("XAI_API_KEY",), "byteplus": ("ARK_API_KEY",), "fal": ("FAL_KEY",),
+                 "openrouter": ("OPENROUTER_API_KEY",)}
 API_KEYS = tuple((" or ".join(names), provider) for provider, names in API_PROVIDERS.items())
 # Removed from every CLI child: the CLI routes run on the user's sign-in (subscription
 # quota), never on a paid API key, and Grok login tokens are never reused for REST.
 STRIPPED_ENV = ("OPENAI_API_KEY", "CODEX_API_KEY", "XAI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "ARK_API_KEY",
-                "FAL_KEY")
+                "FAL_KEY", "OPENROUTER_API_KEY")
 # Also removed: anything that looks like a credential, and the calling agent's own session
 # variables (a nested CLI must not inherit the host's identity, sandbox or lifecycle
 # settings). The CLIs keep their own sign-in in CODEX_HOME / GROK_HOME.
@@ -144,12 +145,13 @@ SKIP_SUFFIXES = frozenset({".pyc", ".pyo"})
 ROUTE_LABEL = {"codex-cli": "Codex (local CLI)", "grok-cli": "Grok (local CLI, one-shot image mode)",
                "grok-acp": "Grok (local CLI, ACP video mode)"}
 API_LABEL = {"openai": "OpenAI API", "gemini": "Google Gemini API", "xai": "xAI API", "byteplus": "BytePlus ModelArk API",
-             "fal": "fal.ai API"}
+             "fal": "fal.ai API", "openrouter": "OpenRouter API"}
 API_KINDS = {"openai": ("image",), "gemini": ("image",), "xai": ("image", "video"), "byteplus": ("image", "video"),
-             "fal": ("image", "video")}
+             "fal": ("image", "video"), "openrouter": ("video",)}
 API_ROLE = {"openai": "an image route (GPT Image)", "gemini": "an image route (Gemini image models)",
             "xai": "an image and video route (Grok Imagine)", "byteplus": "an image and video route (Seedream, Seedance)",
-            "fal": "a reference-edit and video route (Kling, Veo, Luma, MiniMax, Wan, Vidu, LTX)"}
+            "fal": "a reference-edit and video route (Kling, Veo, Luma, MiniMax, Wan, Vidu, LTX)",
+            "openrouter": "a video route (Seedance, Grok Imagine, Kling, Wan, Veo)"}
 # The owner's route order (2026-10-06), as route_media.py runs it: per need, the host tool, the API providers
 # in order, the local CLI capabilities in order (codex-cli attaches reference images, so it also edits) and the
 # model slot of each provider (media_config.MODEL_DEFAULTS). fal.ai's image models are reference edits only.
@@ -157,7 +159,7 @@ ROUTE_NEEDS = (
     ("image", "image_gen", ("openai", "gemini", "xai", "byteplus"), ("codex-cli:image_gen", "grok-cli:image_gen")),
     ("image_edit", "image_edit", ("openai", "gemini", "xai", "byteplus", "fal"),
      ("codex-cli:image_gen", "grok-cli:image_edit")),
-    ("video", "image_to_video", ("xai", "byteplus", "fal"), ("grok-acp:image_to_video",)),
+    ("video", "image_to_video", ("xai", "byteplus", "fal", "openrouter"), ("grok-acp:image_to_video",)),
 )
 MODEL_SLOT = {(need, provider): f"{provider}-{'video' if need == 'video' else 'image'}"
               for need, _tool, providers, _local in ROUTE_NEEDS for provider in providers}
@@ -837,7 +839,7 @@ def api_key_state() -> tuple[dict, dict, Check, dict]:
         check = Check("media.config", "WARN", f"{where} can be read by other users", f"chmod 600 {where}")
     elif extra["problems"]:
         check = Check("media.config", "WARN", f"{where}: " + "; ".join(extra["problems"]),
-                      "use provider names (openai, gemini, xai, byteplus, fal) or local routes (codex-cli, grok-cli, "
+                      "use provider names (openai, gemini, xai, byteplus, fal, openrouter) or local routes (codex-cli, grok-cli, "
                       "grok-acp) in providers.order")
     else:
         check = Check("media.config", "OK", f"user config file {where} (key values are never shown)")

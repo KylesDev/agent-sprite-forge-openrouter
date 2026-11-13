@@ -21,6 +21,7 @@ writes nothing.
 | `xai` | `XAI_API_KEY` | yes | yes |
 | `byteplus` | `ARK_API_KEY` | yes (Seedream) | yes (Seedance) |
 | `fal` | `FAL_KEY` | reference edits | yes |
+| `openrouter` | `OPENROUTER_API_KEY` | no | yes (Seedance, Grok Imagine, Kling, Wan, Veo) |
 
 Keys come from the environment, else from the user config file
 (`%APPDATA%\agent-sprite-forge\config.json` on Windows,
@@ -113,6 +114,7 @@ python "<skill-dir>/scripts/generate_media.py" image --provider fal --model fal-
 python "<skill-dir>/scripts/generate_media.py" video --provider xai --model grok-imagine-video-1.5 --reference hero.png --prompt-file idle.txt --duration 6 --resolution 720p --last-frame hero.png --keyframe hero-mid.png@3 --out-dir outputs/idle-api --execute
 python "<skill-dir>/scripts/generate_media.py" video --provider byteplus --model dreamina-seedance-2-0-260128 --reference hero.png --last-frame hero.png --prompt-file idle.txt --duration 6 --out-dir outputs/idle-seedance --execute
 python "<skill-dir>/scripts/generate_media.py" video --provider fal --model fal-ai/kling-video/v3/pro/image-to-video --reference hero.png --last-frame hero.png --prompt-file idle.txt --duration 6 --out-dir outputs/idle-kling --execute
+python "<skill-dir>/scripts/generate_media.py" video --provider openrouter --model bytedance/seedance-2.0-mini --reference hero.png --last-frame hero.png --prompt-file idle.txt --duration 4 --resolution 480p --out-dir outputs/idle-openrouter --execute
 python "<skill-dir>/scripts/generate_media.py" resume --job outputs/idle-api/job.json --timeout 600
 ```
 
@@ -133,6 +135,14 @@ python "<skill-dir>/scripts/generate_media.py" resume --job outputs/idle-api/job
   3.2 (an identical last frame becomes `loop: true`), MiniMax H3, Wan 3.0, Vidu Q3,
   LTX-2.5 (`camera_motion: static`; padded like Veo). Audio is turned off where the
   model has a switch.
+- **OpenRouter**: one normalized API (`POST /api/v1/videos`, frames as `frame_images`
+  with `frame_type: first_frame` / `last_frame`, sent as data URIs). Seedance 2.0 Mini
+  (standard; both frames, 1:1, 480p or 720p, billed by video tokens: 480p square
+  renders 640x640, so a 4 s clip is about $0.136), Grok Imagine 1.5 Lite (draft; first frame only), Kling v3 Std
+  (hero; both frames, 720p), Wan 3.0 and Veo 3.1 Lite (16:9 only, padded like Veo on
+  fal.ai). `generate_audio: false` where the model has audio. The finished clip is
+  downloaded from `/videos/{id}/content` with the key; the reported `usage.cost` is
+  stored as `costUsd`.
 - First and last frame canvas sizes must match; durations a model cannot render are
   refused here (`route_media.py` snaps them).
 - **Every clip loses its audio locally** before it is published: the sound tracks are

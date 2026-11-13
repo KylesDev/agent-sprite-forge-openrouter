@@ -7,7 +7,8 @@
 Providers, each with its own key (never another provider's): OpenAI images (OPENAI_API_KEY);
 Google Gemini images (GOOGLE_API_KEY or GEMINI_API_KEY; GOOGLE_API_KEY wins); xAI images and
 video (XAI_API_KEY); BytePlus ModelArk, Seedream images and Seedance video (ARK_API_KEY); fal.ai,
-an aggregator with curated image edits and image-to-video models (FAL_KEY).
+an aggregator with curated image edits and image-to-video models (FAL_KEY); OpenRouter, an
+aggregator of image-to-video models behind one normalized video API (OPENROUTER_API_KEY).
 
 Every model has a capability record in references/capabilities.json, stamped with verifiedAt and
 the vendor's doc URLs. Every adapter implements the same steps:
@@ -45,7 +46,7 @@ import media_config  # noqa: E402  (sibling in this skill's scripts/)
 
 CAPABILITIES_PATH = HERE.parent / "references" / "capabilities.json"
 CAPABILITIES_SCHEMA = "generate2dmedia.capabilities.v1"
-ORDER = ("openai", "gemini", "xai", "byteplus", "fal")
+ORDER = ("openai", "gemini", "xai", "byteplus", "fal", "openrouter")
 KINDS = ("image", "video")
 TIERS = ("draft", "standard", "hero")
 VIDEO_RESOLUTIONS = ("480p", "720p", "1080p")
@@ -1276,13 +1277,135 @@ class FalAdapter(Adapter):
         return None
 
 
+# --------------------------------------------------------------------------- OpenRouter
+
+class OpenRouterAdapter(Adapter):
+    """OpenRouter's normalized video API: POST /videos with ``frame_images`` (first_frame, last_frame),
+    poll GET /videos/{id}, download GET /videos/{id}/content with the key (an OpenRouter-hosted file).
+    Each model's record carries an "openrouter" block: the aspect ratios it renders (or the one it is
+    padded to), the exact output sizes of token-billed models, and whether audio can be switched off."""
+
+    name = "openrouter"
+    reserved = frozenset({"model", "prompt", "frame_images", "input_references", "callback_url"})
+
+    def build(self, req, base):
+        record = self.model_record(req.model)
+        if req.kind != "video":
+            raise refuse("OpenRouter is a video route in ASF")
+        spec = record.get("openrouter") or {}
+        warnings, extra = [], {}
+        first, last = req.references[0], req.last_frame
+        width, height = first[0]["size"]
+        aspect = None
+        if spec.get("pad") and not exact_ratio(width, height, [spec["pad"]]):
+            frames = [first] + ([last] if last is not None else [])
+            padded, transform, crop = pad_to_aspect(frames, spec["pad"])
+            first, last = padded[0], (padded[1] if last is not None else None)
+            extra["inputTransform"], extra["crop"] = transform, crop
+            warnings.append(f"{req.model} renders {spec['pad']} only: the frames were padded with "
+                            f"{transform['fill']} and job.json records the crop back to {width}x{height}")
+            aspect = spec["pad"]
+        elif spec.get("pad"):
+            aspect = spec["pad"]
+        else:
+            names = spec.get("aspects") or ["16:9"]
+            aspect = exact_ratio(width, height, names) or nearest_ratio(width, height, names)
+        frames = [{"type": "image_url", "image_url": {"url": data_uri(*first)}, "frame_type": "first_frame"}]
+        if last is not None:
+            frames.append({"type": "image_url", "image_url": {"url": data_uri(*last)}, "frame_type": "last_frame"})
+        fields = {"model": req.model, "prompt": req.prompt, "frame_images": frames, "duration": req.duration}
+        # The sizes table prices token-billed models; the request names resolution and aspect ratio, since
+        # Seedance renders its own sizes (640x640 at 480p 1:1) whatever "size" the listing offers.
+        size = ((spec.get("sizes") or {}).get(req.resolution) or {}).get(aspect)
+        fields["resolution"], fields["aspect_ratio"] = req.resolution, aspect
+        if spec.get("audio_off"):
+            fields["generate_audio"] = False
+        apply_options(fields, req.options, self.reserved)
+        options = {k: v for k, v in fields.items() if k not in ("prompt", "frame_images")}
+        options["frames"] = [item["frame_type"] for item in frames]
+        price = spec.get("price") or {}
+        if price.get("unit") == "video_token":
+            if not size:
+                raise refuse(f"{req.model}: no output size is recorded for {req.resolution} {aspect}")
+            frames = price.get("fps", 24) * req.duration + 1  # a 4 s clip has 97 frames
+            tokens = math.ceil(size[0] * size[1] * frames / 1024)
+            pricing = {"unit": "video_token", "quantity": tokens, "qualifiers": {}, "inputs": None,
+                       "note": f"billed by video tokens ({size[0]}x{size[1]} x {frames} frames / 1024); "
+                               "input images are not billed"}
+        else:
+            pricing = {"unit": "output_second", "quantity": req.duration,
+                       "qualifiers": {"resolution": req.resolution},
+                       "inputs": len(frames) if price.get("input_image") else None,
+                       "note": "OpenRouter list price, audio off" + ("" if price.get("input_image")
+                                                                    else "; input images are not billed")}
+        return Built(base + "/videos", json.dumps(fields).encode(), "application/json", options, pricing, extra,
+                     warnings)
+
+    def read_submit(self, result, kind):
+        rid = result.get("id")
+        if not isinstance(rid, str) or not REQUEST_ID.fullmatch(rid):
+            raise MediaError("Submit response omitted a valid job id; check the OpenRouter activity page before any "
+                             "new submission", code="bad_response")
+        return JobRef(rid)
+
+    def status_url(self, job, base):
+        return base + "/videos/" + job["requestId"]
+
+    def status(self, result, job, http_status=None):
+        state = result.get("status")
+        if state in ("pending", "in_progress", "queued", "processing"):
+            return "pending", None
+        if state == "completed":
+            usage = result.get("usage") if isinstance(result.get("usage"), dict) else {}
+            cost = usage.get("cost")
+            cost = round(float(cost), 6) if isinstance(cost, (int, float)) and not isinstance(cost, bool) \
+                and math.isfinite(cost) and cost >= 0 else None
+            host = parse.urlsplit(job.get("apiBase") or self.api_base).hostname
+            unsigned = result.get("unsigned_urls")
+            url = unsigned[0] if isinstance(unsigned, list) and unsigned else None
+            if _https(url) and parse.urlsplit(url).hostname == host:
+                return "done", MediaRef(url=url, auth=True, cost_usd=cost)
+            signed = result.get("urls")
+            url = signed[0] if isinstance(signed, list) and signed else None
+            if _https(url):
+                return "done", MediaRef(url=url, cost_usd=cost)
+            base = job.get("apiBase") or self.api_base
+            return "done", MediaRef(url=f"{base}/videos/{job['requestId']}/content?index=0", auth=True, cost_usd=cost)
+        if state in ("failed", "cancelled", "expired"):
+            error = result.get("error")
+            text = (json.dumps(error) if not isinstance(error, str) else error).lower() if error else ""
+            terminal = "expired" if state == "expired" else "failed"
+            code = "moderation" if any(w in text for w in ("moderat", "content polic", "safety", "sensitive",
+                                                            "flagged")) else terminal
+            provider = {"httpStatus": int(http_status or 200), "code": _short(state)}
+            raise JobFailure(f"Video job {state}; no regeneration attempted", status=terminal, code=code,
+                             provider=provider)
+        raise MediaError("Unknown video status; job id retained, no regeneration attempted", code="bad_response")
+
+    def classify(self, status, fields):
+        text = _text(fields)
+        if status == 401:
+            return "auth"
+        if status == 402 or "insufficient credits" in text:
+            return "quota"
+        if status == 403:
+            return "moderation" if any(w in text for w in ("moderat", "flagged")) else "entitlement"
+        if status == 404:
+            return "entitlement"
+        if status == 429:
+            return "rate_limit"
+        if status in (400, 422):
+            return "invalid_request"
+        return None
+
+
 ADAPTER_CLASSES = {"openai": OpenAIAdapter, "gemini": GeminiAdapter, "xai": XAIAdapter, "byteplus": BytePlusAdapter,
-                   "fal": FalAdapter}
+                   "fal": FalAdapter, "openrouter": OpenRouterAdapter}
 _ADAPTERS = {}
 
 
 def adapter(name) -> Adapter:
-    """The adapter of a provider (openai, gemini, xai, byteplus or fal)."""
+    """The adapter of a provider (openai, gemini, xai, byteplus, fal or openrouter)."""
     if name not in _ADAPTERS:
         record = capabilities()["providers"].get(name)
         if name not in ADAPTER_CLASSES or record is None:

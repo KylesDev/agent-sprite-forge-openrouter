@@ -125,7 +125,8 @@ def test_cold_machine_reports_video_none(tmp_path):
     assert_valid_contract(report, "media", "doctor_v1", skill="generate2dmedia")
     assert report["routes"]["video"]["route"] == "none" and report["routes"]["image"]["route"] == "none"
     assert report["routes"]["clip"]["route"] == "png-frames" and report["routes"]["video"]["options"] == []
-    assert report["apiKeys"] == {"openai": False, "gemini": False, "xai": False, "byteplus": False, "fal": False}
+    assert report["apiKeys"] == {"openai": False, "gemini": False, "xai": False, "byteplus": False, "fal": False,
+                                 "openrouter": False}
     assert report["routeOrder"] == {"image": ["codeart2d"], "image_edit": ["codeart2d"], "video": ["codeart2d"]}
     assert report["routes"]["code_art"]["status"] == "fallback" and "explicit-only" in report["routes"]["code_art"]["detail"]
     assert check(report, "media.config")["status"] == "OK"
@@ -518,7 +519,8 @@ def test_routes_follow_the_owner_order(tmp_path, cold, monkeypatch):
     write_proofs(cold, [proof("codex-cli", "image_gen", "0.155.1"), proof("grok-cli", "image_gen", "1.0.40"),
                         proof("grok-acp", "image_to_video", "1.0.40")])
     report = forge_doctor.diagnose(host_tools="image_gen", project_dir=cold, console_encoding="utf-8")
-    assert report["apiKeys"] == {"openai": True, "gemini": False, "xai": True, "byteplus": False, "fal": False}
+    assert report["apiKeys"] == {"openai": True, "gemini": False, "xai": True, "byteplus": False, "fal": False,
+                                 "openrouter": False}
     image = report["routes"]["image"]
     assert [(o["route"], o["status"]) for o in image["options"]] == [
         ("api:openai", "ready"), ("api:xai", "ready"), ("host_image", "ready"), ("local:codex-cli", "ready"),
@@ -532,7 +534,7 @@ def test_routes_follow_the_owner_order(tmp_path, cold, monkeypatch):
     assert video["options"][0]["model"] == "grok-imagine-video-1.5"
     assert video["options"][1]["label"] == "Grok (local CLI, ACP video mode)"
     text = forge_doctor.render_text(report)
-    assert "api keys    openai=yes  gemini=no  xai=yes  byteplus=no  fal=no" in text
+    assert "api keys    openai=yes  gemini=no  xai=yes  byteplus=no  fal=no  openrouter=no" in text
     assert "image: api:openai > api:xai > host_image" in text
     assert "set-but-never-read" not in text and "set-but-never-read" not in json.dumps(report)
     monkeypatch.setenv("OPENAI_API_KEY", "")
@@ -558,7 +560,8 @@ def test_keys_in_the_user_config_count_as_configured(tmp_path, cold, monkeypatch
     """The doctor reads the user config file in-process and reports yes or no only, never a key."""
     user_config(XAI_API_KEY=CANARY, models={"xai-video": "grok-imagine-video-1.5-lite"})
     report = forge_doctor.diagnose(host_tools="none", project_dir=cold, run_versions=False, console_encoding="utf-8")
-    assert report["apiKeys"] == {"openai": False, "gemini": False, "xai": True, "byteplus": False, "fal": False}
+    assert report["apiKeys"] == {"openai": False, "gemini": False, "xai": True, "byteplus": False, "fal": False,
+                                 "openrouter": False}
     assert check(report, "media.api.xai")["status"] == "UNKNOWN" and "user config file" in check(report, "media.api.xai")["detail"]
     assert check(report, "media.api.openai")["status"] == "MISSING"
     video = report["routes"]["video"]
@@ -567,7 +570,8 @@ def test_keys_in_the_user_config_count_as_configured(tmp_path, cold, monkeypatch
     assert_valid_contract(report, "media", "doctor_v1", skill="generate2dmedia")
     result, shown = doctor_json(tmp_path, env={"APPDATA": os.environ["APPDATA"],
                                                "XDG_CONFIG_HOME": os.environ["XDG_CONFIG_HOME"]})
-    assert shown["apiKeys"] == {"openai": False, "gemini": False, "xai": True, "byteplus": False, "fal": False}
+    assert shown["apiKeys"] == {"openai": False, "gemini": False, "xai": True, "byteplus": False, "fal": False,
+                                 "openrouter": False}
     text = run_cli([DOCTOR], cwd=tmp_path, env={**cold_env(tmp_path), "APPDATA": os.environ["APPDATA"],
                                                  "XDG_CONFIG_HOME": os.environ["XDG_CONFIG_HOME"]}, timeout=120)
     assert "openai=no  gemini=no  xai=yes" in text.stdout
