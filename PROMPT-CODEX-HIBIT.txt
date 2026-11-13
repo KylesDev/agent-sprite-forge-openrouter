@@ -1,0 +1,42 @@
+PROMPT DA DARE A CODEX: personaggio pixel art in stile hibit
+=============================================================
+
+Sostituisci le parti tra [parentesi quadre]. Le regole su cartelle e spese stanno
+anche in AGENTS.md, che Codex legge da solo; qui le ripetiamo per sicurezza.
+
+
+--- VERSIONE 32x32 ------------------------------------------------------------
+
+Crea un personaggio pixel art in stile hibit: [descrizione, es. "una piccola volpe
+maga con mantello viola e un bastone con una stella"], vista laterale rivolto a destra.
+
+Lavora solo nella cartella outputs/[nome-progetto]/ (master/, set/, scratch/, export/)
+e passa sempre --project-dir outputs/[nome-progetto].
+
+1. Master: master_still.py generate --finish hibit, design pensato per 32 px
+   (testa grande, silhouette semplice e leggibile, pochi materiali, niente dettagli fini).
+   Mostrami il master e aspetta la mia approvazione.
+2. Set: sprite_set.py plan --master <master.json> --output-dir outputs/[nome-progetto]/set
+   --finish hibit --target-height 28 --canvas 32x32 --colors 10 --fps 10
+   --resolution 480p --duration 4 --max-takes 1 --jobs 2 --actions [idle,walk,attack]
+3. Genera prima solo l'idle (sprite_set.py run --actions idle), mostramelo, poi le altre azioni.
+
+Usa la route OpenRouter. Prima di ogni generazione a pagamento dimmi quante clip
+farai e la stima del costo. Non cambiare risoluzione, durata o numero di take senza
+chiedermelo. Se arriva un errore di quota (limite della chiave), fermati.
+
+
+--- VERSIONE 64x64 ------------------------------------------------------------
+
+Uguale alla 32x32, cambiando nel passo 2:
+   --target-height 56 --canvas 64x64 --colors 14 --fps 12
+e nel passo 1 "design pensato per 64 px".
+
+
+--- NOTE ----------------------------------------------------------------------
+
+- Costo indicativo: circa 0,14 $ per clip (Seedance 2.0 Mini, 480p, 4 s);
+  6 azioni circa 0,82 $ per personaggio.
+- target-height e' l'altezza del corpo a riposo, contorno incluso: resta un po' di
+  margine nella cella per spada, salti e capelli.
+- Azioni disponibili: idle, walk, run, attack, jump, hurt.

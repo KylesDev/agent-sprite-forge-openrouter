@@ -3370,10 +3370,13 @@ def build_parser() -> argparse.ArgumentParser:
     pl.add_argument("--oneshot-ms", help="one-shot game lengths, such as attack=600,jump=800 (ms)")
     pl.add_argument("--formats", default="png,webm,packed", help="engine_export formats (default png,webm,packed)")
     pl.add_argument("--tiers", help="engine_export mobile tiers: actor, prop, fx or NAME:EDGE@FPS (default none)")
-    pl.add_argument("--duration", type=_seconds(2, 30), default=6.0, help="clip seconds (default 6)")
-    pl.add_argument("--resolution", default="720p", help="generation resolution (default 720p)")
-    pl.add_argument("--max-takes", type=_positive_int(1, 10), default=3,
-                    help="automatic takes per action and round (default 3)")
+    # Cheap defaults (this fork): paid image-to-video is billed by pixels and seconds, and a finished sprite
+    # (80 px hibit, 256 px hd) never needs more than 480p; one take per round, so a rejected take is never
+    # paid for again without being asked.
+    pl.add_argument("--duration", type=_seconds(2, 30), default=4.0, help="clip seconds (default 4)")
+    pl.add_argument("--resolution", default="480p", help="generation resolution (default 480p)")
+    pl.add_argument("--max-takes", type=_positive_int(1, 10), default=1,
+                    help="automatic takes per action and round (default 1)")
     pl.add_argument("--jobs", type=_positive_int(1, 16), default=3, help="clips generated at once (default 3)")
     pl.add_argument("--pin-last", choices=("auto", "on", "off"), default="auto",
                     help="pin the end frame to the master: auto = idle and attack (default), on = every action "

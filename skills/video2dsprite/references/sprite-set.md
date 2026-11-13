@@ -20,7 +20,7 @@ Run each as one line from the project root. `<skill-dir>` is this skill's folder
 
 | Verb | Flags | Writes |
 |---|---|---|
-| `plan` | `--master` (generate2dsprite.master.v1), `--output-dir` (new), `--actions` (default `idle,walk,run,attack,jump,hurt`), `--views side[,front,back]` with `--view-master VIEW=FILE`, `--finish hd\|pixel` (default the master's), `--target-height`, `--fps` (fractions allowed: `12.5`, `25/2`) or `--frame-ms 80`, `--formats png,webm,packed`, `--tiers`, `--duration 6`, `--resolution 720p`, `--max-takes 3`, `--jobs 3`, `--pin-last auto\|on\|off`, `--gen-timeout`, `--style`, `--pronoun`, `--palette` or `--colors N` (pixel), `--outline selective\|dark\|none` (pixel), `--canvas WxH`, `--canvas-anchor X,Y`, `--no-colour-lock`, `--oneshot-timing auto\|source`, `--oneshot-ms attack=700,...`, `--matte-profile`, `--library` | the set folder: `master/<view>/` byte copies, `set_plan.json` |
+| `plan` | `--master` (generate2dsprite.master.v1), `--output-dir` (new), `--actions` (default `idle,walk,run,attack,jump,hurt`), `--views side[,front,back]` with `--view-master VIEW=FILE`, `--finish hd\|pixel` (default the master's), `--target-height`, `--fps` (fractions allowed: `12.5`, `25/2`) or `--frame-ms 80`, `--formats png,webm,packed`, `--tiers`, `--duration 4`, `--resolution 480p`, `--max-takes 1`, `--jobs 3`, `--pin-last auto\|on\|off`, `--gen-timeout`, `--style`, `--pronoun`, `--palette` or `--colors N` (pixel), `--outline selective\|dark\|none` (pixel), `--canvas WxH`, `--canvas-anchor X,Y`, `--no-colour-lock`, `--oneshot-timing auto\|source`, `--oneshot-ms attack=700,...`, `--matte-profile`, `--library` | the set folder: `master/<view>/` byte copies, `set_plan.json` |
 | `run` | `--plan`, `--actions`, `--max-takes`, `--jobs`, `--stagger 2`, `--media-cli`, `--timeout`, `--progress-file <jsonl>` | `actions/<id>/job/`, `actions/<id>/takes/tNN/...`, `set_state.json`, `takes.jsonl` |
 | `review` | `--plan`, `--peer <other set>` | `review/<id>/tNN-sheet.png`, `review/<id>/tNN-final.png`, `review/lineup-NNN.png`, `review/review-NNN.json` |
 | `accept` | `--plan`, `--action`, `--take`, `--window START:END`, `--note` | the acceptance in `set_state.json`; `takes/tNN/review-verdict-NNN.json` and, for a packaged take, the verdict in its package |
@@ -100,7 +100,7 @@ agent can read and edit `motion`, `negatives` and `gates` in `set_plan.json` bef
    negatives, every fix clause collected so far, then the camera lock, the flat key background and
    "keep the exact <style> look". Written to `takes/tNN/prompt.txt`.
 3. **Generate.** `python "<skills>/generate2dmedia/scripts/route_media.py" video --prompt-file P
-   --reference input.png [--last-frame input.png] --duration 6 --resolution 720p --out-dir
+   --reference input.png [--last-frame input.png] --duration 4 --resolution 480p --out-dir
    takes/tNN/media`, up to `--jobs` clips at once. `--media-cli` replaces the script;
    `FORGE_ROUTE_MEDIA_FAKE` (a script path) replaces it in tests. Exit 3 means no route: the action
    waits, and a clip saved into `takes/tNN/media/` (any .mp4, .webm, .mov) is adopted on the next

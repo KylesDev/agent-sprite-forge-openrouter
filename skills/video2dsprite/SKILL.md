@@ -33,7 +33,7 @@ The master still comes from [generate2dsprite](../generate2dsprite/SKILL.md) (im
 3. A clip the user supplies (no account needed).
 4. codeart2d only when the user explicitly asks for code-drawn animation, or when `route_media.py` prints `no-route` (exit 3); otherwise prepare the job and prompt, explain the gap, and never invent a successful generation.
 
-Every clip goes through one command: `python "<skill-dir>/../generate2dmedia/scripts/route_media.py" video --prompt-file <job>/prompt.txt --reference <job>/input.png --last-frame <job>/input.png --duration 6 --resolution 720p --out-dir <new>`. It prints one JSON line with `route`, `artifact`, `sha256`, `estimateUsd` and `lastFrameUsed`. The finish is HD by default; the pixel finish is an option when the user asks for pixel art.
+Every clip goes through one command: `python "<skill-dir>/../generate2dmedia/scripts/route_media.py" video --prompt-file <job>/prompt.txt --reference <job>/input.png --last-frame <job>/input.png --duration 4 --resolution 480p --out-dir <new>`. It prints one JSON line with `route`, `artifact`, `sha256`, `estimateUsd` and `lastFrameUsed`. The finish is HD by default; the pixel finish is an option when the user asks for pixel art.
 
 ## A whole sprite set from one still
 

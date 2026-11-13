@@ -668,7 +668,7 @@ def test_set_flow_retake_resume_review_accept_retake_report(ss, fake, tmp_path):
     master = write_master(tmp_path / "art", fake, ss)
     plan_path = tmp_path / "set" / "set_plan.json"
     _, summary = cli("plan", "--master", master, "--output-dir", tmp_path / "set", "--actions", "idle,walk,attack",
-                     "--target-height", 48, "--jobs", 2)
+                     "--target-height", 48, "--jobs", 2, "--max-takes", 3)
     assert summary["maxClips"] == 9
     env = fake_env(fake, tmp_path, FAKE_FAIL="attack:turn", FORGE_FINISH_FRAMES=fake["finisher"])
 
